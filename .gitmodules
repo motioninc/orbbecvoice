@@ -1,0 +1,4 @@
+[submodule "submodule/OpenNI2"]
+	path = submodule/OpenNI2
+	url = https://github.com/motioninc/OpenNI2
+	branch = swara

@@ -1,0 +1,46 @@
+apply plugin: 'com.android.model.native'
+
+model {
+    android {
+        compileSdkVersion project.compileSdkVersion
+        buildToolsVersion project.buildToolsVersion
+
+        defaultConfig {
+            minSdkVersion.apiLevel project.minSdkVersion
+            targetSdkVersion.apiLevel project.targetSdkVersion
+            versionCode = 1
+            versionName = '1.0'
+        }
+
+        ndk {
+            moduleName = 'usb'
+            cppFlags.addAll([
+                    '-O3',
+                    '-ftree-vectorize',
+                    '-ffast-math',
+                    '-funroll-loops',
+                    '-fPIC',
+                    '-fvisibility=hidden',
+                    '-DHAVE_NEON=1',
+                    '-DXN_NEON',
+                    '-flax-vector-conversions',
+            ])
+            CFlags.addAll([
+                    '-I' + file ('src/main/jni/'),
+                    '-I' + file ('src/main/jni/libusb/'),
+            ])
+            ldLibs.addAll(['android', 'log'])
+        }
+    }
+}
+
+task(distributeLib, type: Copy) {
+    dependsOn assemble
+    into '../distribution/usb/'
+    from('src/main/jni/libusb/libusb.h') {
+        into 'include/'
+    }
+    from('build/outputs/native/release/lib') {
+        into 'lib/'
+    }
+}

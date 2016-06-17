@@ -1,0 +1,96 @@
+apply plugin: 'com.android.model.native'
+
+def lib_distribution_root = '../distribution'
+model {
+    repositories {
+        libs(PrebuiltLibraries) {
+            XnLib {
+                headers.srcDir "${lib_distribution_root}/XnLib/include"
+                binaries.withType(StaticLibraryBinary) {
+                    staticLibraryFile = file("${lib_distribution_root}/XnLib/lib/${targetPlatform.getName()}/libXnLib.a")
+                }
+            }
+            DepthUtils {
+                headers.srcDir "${lib_distribution_root}/DepthUtils/include"
+                binaries.withType(StaticLibraryBinary) {
+                    staticLibraryFile = file("${lib_distribution_root}/DepthUtils/lib/${targetPlatform.getName()}/libDepthUtils.a")
+                }
+            }
+            usb {
+                headers.srcDir "${lib_distribution_root}/usb/include"
+                binaries.withType(SharedLibraryBinary) {
+                    sharedLibraryFile = file("${lib_distribution_root}/usb/lib/${targetPlatform.getName()}/libusb.so")
+                }
+            }
+        }
+    }
+
+    android {
+        compileSdkVersion project.compileSdkVersion
+        buildToolsVersion project.buildToolsVersion
+
+        defaultConfig {
+            minSdkVersion.apiLevel project.minSdkVersion
+            targetSdkVersion.apiLevel project.targetSdkVersion
+            versionCode = 1
+            versionName = '1.0'
+        }
+
+        ndk {
+            moduleName = 'orbbec'
+            stl = 'gnustl_static'
+            ldLibs.addAll(['android', 'log'])
+            cppFlags.addAll([
+                    '-O3',
+                    '-ftree-vectorize',
+                    '-ffast-math',
+                    '-funroll-loops',
+                    '-fPIC',
+                    '-fvisibility=hidden',
+//                    '-DHAVE_NEON=1',
+//                    '-DXN_NEON',
+//                    '-flax-vector-conversions',
+                    '-DANDROID=1',
+                    '-D__arm__=1',
+                    '-I' + file('src/main/jni/Source/Drivers/orbbec/'),
+                    '-I' + file('src/main/jni/Source/Drivers/orbbec/Include/'),
+                    '-I' + file("${lib_distribution_root}/XnLib/include/"),
+                    '-I' + file("${lib_distribution_root}/OpenNI2/include/"),
+                    '-I' + file("${lib_distribution_root}/DepthUtils/include/"),
+                    '-frtti',
+                    '-fexceptions',
+                    '-std=gnu++11',
+            ])
+        }
+        sources {
+            main {
+                jni {
+                    dependencies {
+                        project ':XnLib' linkage 'static'
+                        project ':DepthUtils' linkage 'static'
+                        library 'usb' linkage 'shared'
+                    }
+                }
+            }
+        }
+    }
+}
+
+task(distributeLib, type: Copy) {
+    dependsOn assemble
+    into '../distribution/orbbec/'
+    from('src/main/jni/Source/Drivers/orbbec/Include') {
+        into 'include/'
+    }
+    from('build/outputs/native/release/lib') {
+        into 'lib/'
+    }
+}
+
+tasks.whenTaskAdded { task ->
+    if (task.name.contains('compile')) {
+        task.dependsOn ':XnLib:distributeLib'
+        task.dependsOn ':DepthUtils:distributeLib'
+        task.dependsOn ':usb:distributeLib'
+    }
+}

@@ -1,0 +1,1 @@
+include ':app', ':usb', ':XnLib', ':OpenNI2', ':DepthUtils', ':orbbec', ':OniFile', ':PSLink', ':PS1080'

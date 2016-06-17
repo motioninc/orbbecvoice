@@ -1,0 +1,191 @@
+apply plugin: 'com.android.model.application'
+
+def lib_distribution_root = '../distribution'
+model {
+    repositories {
+        libs(PrebuiltLibraries) {
+            OpenNI2 {
+                headers.srcDir "${lib_distribution_root}/OpenNI2/include"
+                binaries.withType(SharedLibraryBinary) {
+                    sharedLibraryFile = file("${lib_distribution_root}/OpenNI2/lib/${targetPlatform.getName()}/libOpenNI2.so")
+                }
+            }
+            orbbec {
+                headers.srcDir "${lib_distribution_root}/orbbec/include"
+                binaries.withType(SharedLibraryBinary) {
+                    sharedLibraryFile = file("${lib_distribution_root}/orbbec/lib/${targetPlatform.getName()}/liborbbec.so")
+                }
+            }
+            usb {
+                headers.srcDir "${lib_distribution_root}/usb/include"
+                binaries.withType(SharedLibraryBinary) {
+                    sharedLibraryFile = file("${lib_distribution_root}/usb/lib/${targetPlatform.getName()}/libusb.so")
+                }
+            }
+
+            /*......................................................................................
+             Uncomment this for production release.
+             This is another existing driver that not being used by our project.
+            ......................................................................................*/
+
+//            OniFile {
+//                headers.srcDir "${lib_distribution_root}/OniFile/include"
+//                binaries.withType(SharedLibraryBinary) {
+//                    sharedLibraryFile = file("${lib_distribution_root}/OniFile/lib/${targetPlatform.getName()}/libOniFile.so")
+//                }
+//            }
+//            PSLink {
+//                headers.srcDir "${lib_distribution_root}/PSLink/include"
+//                binaries.withType(SharedLibraryBinary) {
+//                    sharedLibraryFile = file("${lib_distribution_root}/PSLink/lib/${targetPlatform.getName()}/libPSLink.so")
+//                }
+//            }
+//            PS1080 {
+//                headers.srcDir "${lib_distribution_root}/PS1080/include"
+//                binaries.withType(SharedLibraryBinary) {
+//                    sharedLibraryFile = file("${lib_distribution_root}/PS1080/lib/${targetPlatform.getName()}/libPS1080.so")
+//                }
+//            }
+
+            /*....................................................................................*/
+
+        }
+    }
+
+    android {
+        compileSdkVersion project.compileSdkVersion
+        buildToolsVersion project.buildToolsVersion
+
+        defaultConfig {
+            applicationId "id.co.motion.swara"
+            minSdkVersion.apiLevel project.minSdkVersion
+            targetSdkVersion.apiLevel project.targetSdkVersion
+            versionCode = 1
+            versionName = '1.0'
+        }
+
+        ndk {
+
+            /*......................................................................................
+             Comment this for production release.
+             It is to pack only the armeabi-v7a library. It's to reduce apk size, so faster uploading.
+            ......................................................................................*/
+
+            abiFilters.addAll(['armeabi-v7a'])
+
+            /*....................................................................................*/
+
+            moduleName = 'swara'
+            toolchain = 'clang'
+            cppFlags.addAll([
+                    '-O3',
+                    '-ftree-vectorize',
+                    '-ffast-math',
+                    '-funroll-loops',
+                    '-fPIC',
+                    '-fvisibility=hidden',
+                    '-DHAVE_NEON=1',
+                    '-DXN_NEON',
+                    '-flax-vector-conversions',
+                    '-I' + file('src/main/jni/Include'),
+                    '-DANDROID=1',
+                    '-D__arm__=1',
+                    '-I' + file("${lib_distribution_root}/XnLib/include/"),
+                    '-I' + file("${lib_distribution_root}/OpenNI2/include/"),
+            ])
+            ldLibs.addAll([
+                    'GLESv1_CM',
+                    'android',
+                    'log',
+            ])
+        }
+
+        sources {
+            main {
+                jni {
+                    source {
+                        srcDir file('../submodule/OpenNI2/Wrappers/java/jni/')
+                    }
+                    dependencies {
+                        library 'OpenNI2' linkage 'shared'
+                        library 'orbbec' linkage 'shared'
+                    }
+                }
+                jniLibs {
+                    dependencies {
+                        library 'OpenNI2'
+                        library 'orbbec'
+                        library 'usb'
+
+                        /*..........................................................................
+                          Uncomment this for production release.
+                          This is another existing driver that not being used by our project.
+                        ..........................................................................*/
+
+//                        library 'OniFile'
+//                        library 'PSLink'
+//                        library 'PS1080'
+
+                        /*........................................................................*/
+
+                    }
+                }
+            }
+        }
+
+        buildTypes {
+            release {
+
+                /*..................................................................................
+                 Comment this for production release.
+                 Reducing build time by skip the code minimization step.
+                ..................................................................................*/
+
+                minifyEnabled false
+
+                /*................................................................................*/
+
+                proguardFiles.add(file('proguard-rules.pro'))
+            }
+        }
+    }
+}
+
+/*..................................................................................................
+ Fullscreen helper (SystemUiHelper)
+ http://stackoverflow.com/a/29577469/4218210
+..................................................................................................*/
+
+repositories {
+    maven { url "https://jitpack.io" }
+}
+dependencies {
+    compile 'com.github.intrications:SystemUiHelper:1.1'
+}
+
+/*................................................................................................*/
+
+dependencies {
+    println rootProject.getName()
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile 'com.android.support:appcompat-v7:23.2.0'
+}
+
+/*..................................................................................................
+ Comment this if native library not change to reduce build time.
+ This is to ensure that all library is checked for a change in code, and rebuild it if it does.
+ Turn off checking can skip a lot of step in effect reducing build time.
+..................................................................................................*/
+
+tasks.whenTaskAdded { task ->
+    if (task.name.contains('compile')) {
+        task.dependsOn ':OpenNI2:distributeLib'
+        task.dependsOn ':orbbec:distributeLib'
+        task.dependsOn ':usb:distributeLib'
+        task.dependsOn ':OniFile:distributeLib'
+        task.dependsOn ':PSLink:distributeLib'
+        task.dependsOn ':PS1080:distributeLib'
+    }
+}
+
+/*................................................................................................*/

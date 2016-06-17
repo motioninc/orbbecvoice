@@ -1,0 +1,81 @@
+apply plugin: 'com.android.model.native'
+
+def lib_distribution_root = '../distribution'
+model {
+    repositories {
+        libs(PrebuiltLibraries) {
+            usb {
+                headers.srcDir "${lib_distribution_root}/usb/include"
+                binaries.withType(SharedLibraryBinary) {
+                    sharedLibraryFile = file("${lib_distribution_root}/usb/lib/${targetPlatform.getName()}/libusb.so")
+                }
+            }
+        }
+    }
+
+    android {
+        compileSdkVersion project.compileSdkVersion
+        buildToolsVersion project.buildToolsVersion
+
+        defaultConfig {
+            minSdkVersion.apiLevel project.minSdkVersion
+            targetSdkVersion.apiLevel project.targetSdkVersion
+            versionCode = 1
+            versionName = '1.0'
+        }
+
+        ndk {
+            moduleName = 'XnLib'
+            cppFlags.addAll([
+                    '-O3',
+                    '-ftree-vectorize',
+                    '-ffast-math',
+                    '-funroll-loops',
+                    '-fPIC',
+                    '-fvisibility=hidden',
+                    '-DHAVE_NEON=1',
+                    '-DXN_NEON',
+                    '-flax-vector-conversions',
+                    '-I' + file('src/main/jni/Include/'),
+                    '-I' + file("${lib_distribution_root}/usb/include/"),
+                    '-I' + file("src/main/jni/ThirdParty/LibJPEG/"),
+                    '-DANDROID=1',
+                    '-D__arm__=1',
+            ])
+            CFlags.addAll([
+                    '-I' + file('src/main/jni/Include/'),
+                    '-I' + file("${lib_distribution_root}/usb/include/"),
+                    '-DANDROID=1',
+                    '-D__arm__=1',
+            ])
+            ldLibs.addAll(['android', 'log'])
+        }
+
+        sources {
+            main {
+                jni {
+                    dependencies {
+                        library 'usb' linkage 'shared'
+                    }
+                }
+            }
+        }
+    }
+}
+
+task(distributeLib, type: Copy) {
+    dependsOn assemble
+    into '../distribution/XnLib/'
+    from('src/main/jni/Include') {
+        into 'include/'
+    }
+    from('build/outputs/native/release/lib') {
+        into 'lib/'
+    }
+}
+
+tasks.whenTaskAdded { task ->
+    if (task.name.contains('compile')) {
+        task.dependsOn ':usb:distributeLib'
+    }
+}
